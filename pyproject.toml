@@ -1,0 +1,12 @@
+[project]
+name = "mqtt-publisher"
+version = "0.1.0"
+description = "Publish CSV data to MQTT broker"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "paho-mqtt>=1.6.1",
+]
+
+[project.scripts]
+mqtt-publish = "mqtt_publisher:main"
