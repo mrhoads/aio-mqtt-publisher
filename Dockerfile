@@ -8,11 +8,8 @@ COPY pyproject.toml ./
 COPY mqtt_publisher.py ./
 COPY data/ ./data/
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
-# Install dependencies using uv
-RUN uv pip install --system -r pyproject.toml
+# Install dependencies directly with pip (more reliable than uv in containers)
+RUN pip install --no-cache-dir paho-mqtt>=1.6.1
 
 # Set default command (can be overridden)
 ENTRYPOINT ["python", "mqtt_publisher.py"]
