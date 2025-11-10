@@ -12,7 +12,7 @@ from datetime import datetime
 import paho.mqtt.client as mqtt
 
 
-def on_connect(client, userdata, flags, rc):
+def on_connect(client, userdata, flags, rc, properties=None):
     """Callback for when the client connects to the broker"""
     if rc == 0:
         print(f"✓ Connected to MQTT broker successfully")
@@ -20,12 +20,12 @@ def on_connect(client, userdata, flags, rc):
         print(f"✗ Connection failed with code {rc}")
 
 
-def on_publish(client, userdata, mid):
+def on_publish(client, userdata, mid, reason_code=None, properties=None):
     """Callback for when a message is published"""
-    print(f"  Message {mid} published")
+    pass  # Removed verbose logging per message
 
 
-def publish_csv_data(broker_host, broker_port, topic, csv_file, interval=1.0, username=None, password=None):
+def publish_csv_data(broker_host, broker_port, topic, csv_file, interval=1.0, username=None, password=None, loop=False):
     """
     Read CSV file and publish each row to MQTT broker
     
@@ -37,10 +37,11 @@ def publish_csv_data(broker_host, broker_port, topic, csv_file, interval=1.0, us
         interval: Delay between messages in seconds
         username: Optional MQTT username
         password: Optional MQTT password
+        loop: If True, continuously loop through CSV file
     """
     
-    # Create MQTT client
-    client = mqtt.Client()
+    # Create MQTT client with callback API version 2
+    client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
     client.on_publish = on_publish
     
@@ -61,24 +62,40 @@ def publish_csv_data(broker_host, broker_port, topic, csv_file, interval=1.0, us
         # Read and publish CSV data
         print(f"\nReading data from: {csv_file}")
         print(f"Publishing to topic: {topic}")
-        print(f"Interval between messages: {interval}s\n")
+        print(f"Interval between messages: {interval}s")
+        if loop:
+            print("Mode: Continuous loop (Press Ctrl+C to stop)")
+        else:
+            print("Mode: Single pass through file")
+        print()
         
-        with open(csv_file, 'r') as file:
-            csv_reader = csv.DictReader(file)
-            row_count = 0
+        row_count = 0
+        iteration = 0
+        
+        while True:
+            iteration += 1
+            if loop and iteration > 1:
+                print(f"\n--- Starting iteration {iteration} ---\n")
             
-            for row in csv_reader:
-                # Convert row to JSON
-                message = json.dumps(row)
+            with open(csv_file, 'r') as file:
+                csv_reader = csv.DictReader(file)
                 
-                # Publish message
-                result = client.publish(topic, message, qos=1)
-                
-                row_count += 1
-                print(f"[{row_count}] Published row at {row.get('Robot1_SourceTimestamp', 'N/A')}")
-                
-                # Wait before sending next message
-                time.sleep(interval)
+                for row in csv_reader:
+                    # Convert row to JSON
+                    message = json.dumps(row)
+                    
+                    # Publish message
+                    result = client.publish(topic, message, qos=1)
+                    
+                    row_count += 1
+                    print(f"[{row_count}] Published row at {row.get('Robot1_SourceTimestamp', 'N/A')}")
+                    
+                    # Wait before sending next message
+                    time.sleep(interval)
+            
+            # Exit loop if not in continuous mode
+            if not loop:
+                break
         
         print(f"\n✓ Successfully published {row_count} messages")
         
@@ -104,8 +121,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Publish to local broker
+  # Publish to local broker (single pass)
   python mqtt_publisher.py --broker localhost --topic robot/data --file data/sampledata.csv
+  
+  # Continuously loop through CSV
+  python mqtt_publisher.py --broker localhost --topic robot/data --file data/sampledata.csv --loop
   
   # Publish with authentication and custom interval
   python mqtt_publisher.py --broker mqtt.example.com --topic sensors/robot1 \\
@@ -122,6 +142,8 @@ Examples:
                        help='Delay between messages in seconds (default: 1.0)')
     parser.add_argument('--username', help='MQTT username (optional)')
     parser.add_argument('--password', help='MQTT password (optional)')
+    parser.add_argument('--loop', action='store_true',
+                       help='Continuously loop through CSV file (default: false)')
     
     args = parser.parse_args()
     
@@ -133,7 +155,8 @@ Examples:
         csv_file=args.file,
         interval=args.interval,
         username=args.username,
-        password=args.password
+        password=args.password,
+        loop=args.loop
     )
 
 

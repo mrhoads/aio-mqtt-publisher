@@ -1,0 +1,35 @@
+services:
+  mqtt-publisher:
+    build: .
+    container_name: mqtt-publisher
+    environment:
+      - TZ=UTC
+    command: >
+      --broker mosquitto
+      --topic robot/data
+      --file data/sampledata.csv
+      --interval 1.0
+      --loop
+    depends_on:
+      - mosquitto
+    networks:
+      - mqtt-network
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      - mqtt-network
+    restart: unless-stopped
+
+networks:
+  mqtt-network:
+    driver: bridge
