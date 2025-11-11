@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: mqtt-simulator
-          image: ghcr.io/mrhoads/mqtt-publisher:0.0.2
+          image: ghcr.io/mrhoads/mqtt-publisher:0.0.3
           args:
             - --broker
             - {{ .Values.mqBrokerEndpoint }}
